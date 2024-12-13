@@ -4,12 +4,15 @@ import pandas as pd
 import ta
 import time
 from datetime import datetime
+from src.utils.strategies import TradingStrategies, Signal
 
 class TradingBot:
     def __init__(self, symbol, interval='1m'):
         self.symbol = symbol.upper()
         self.interval = interval
         self.position = False  # False = no position, True = has position
+        self.strategies = TradingStrategies()
+        self.min_signal_strength = 0.3  # Minimum signal strength threshold
         
     @property
     def symbol(self):
@@ -50,19 +53,24 @@ class TradingBot:
         
         return df
     
-    def generate_signals(self, df):
-        """Generate buy/sell signals based on technical indicators"""
-        if not self.position:  # Looking for buy signals
-            if (df['RSI'].iloc[-1] < 30 and  # Oversold
-                df['MACD'].iloc[-1] > df['MACD_signal'].iloc[-1] and  # MACD crossover
-                df['Close'].iloc[-1] < df['BB_low'].iloc[-1]):  # Below lower Bollinger Band
-                return "BUY"
-        else:  # Looking for sell signals
-            if (df['RSI'].iloc[-1] > 70 and  # Overbought
-                df['MACD'].iloc[-1] < df['MACD_signal'].iloc[-1] and  # MACD crossover
-                df['Close'].iloc[-1] > df['BB_high'].iloc[-1]):  # Above upper Bollinger Band
-                return "SELL"
-        return None
+    def analyze_signals(self, df) -> list[Signal]:
+        """Analyze all strategies and return triggered signals"""
+        signals = []
+        
+        # Check each strategy
+        strategies = [
+            self.strategies.rsi_strategy,
+            self.strategies.macd_cross_strategy,
+            self.strategies.bollinger_bands_strategy,
+            self.strategies.volume_price_strategy
+        ]
+        
+        for strategy in strategies:
+            signal = strategy(df)
+            if signal and signal.strength >= self.min_signal_strength:
+                signals.append(signal)
+                
+        return signals
     
     def run(self):
         """Main bot loop"""
@@ -89,13 +97,14 @@ class TradingBot:
                 print(f"BB Upper: {df['BB_high'].iloc[-1]:.2f}")
                 print(f"BB Lower: {df['BB_low'].iloc[-1]:.2f}")
                 
-                # Generate trading signals
-                signal = self.generate_signals(df)
+                # Analyze trading signals
+                signals = self.analyze_signals(df)
                 
-                if signal:
-                    print(f"{datetime.now()}: {signal} signal generated at price: {df['Close'].iloc[-1]:.2f}")
+                for signal in signals:
+                    print(f"{datetime.now()}: {signal.type} signal generated at price: {signal.price:.2f} ({signal.reason})")
                     self.position = not self.position  # Toggle position
-                else:
+                
+                if not signals:
                     print("No trading signal generated")
                 
                 # Wait before next iteration
