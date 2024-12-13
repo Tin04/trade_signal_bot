@@ -10,6 +10,7 @@ from src.utils.strategies import Signal  # Add this import
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
+from src.utils.trend_predictor import TrendPredictor  # Add this import
 
 class TradingBotUI:
     def __init__(self, root):
@@ -106,6 +107,19 @@ class TradingBotUI:
         self.canvas = FigureCanvasTkAgg(self.fig, master=self.chart_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
         
+        # Add Trend Prediction Frame
+        trend_frame = ttk.LabelFrame(self.root, text="Trend Prediction", padding="10")
+        trend_frame.pack(fill=tk.X, padx=10, pady=5)
+        
+        # Add prediction labels
+        self.trend_direction_var = tk.StringVar(value="Direction: --")
+        self.trend_strength_var = tk.StringVar(value="Strength: --")
+        self.trend_reason_var = tk.StringVar(value="Reason: --")
+        
+        ttk.Label(trend_frame, textvariable=self.trend_direction_var, font=('Arial', 10, 'bold')).pack(anchor='w')
+        ttk.Label(trend_frame, textvariable=self.trend_strength_var).pack(anchor='w')
+        ttk.Label(trend_frame, textvariable=self.trend_reason_var).pack(anchor='w')
+
     def log(self, message):
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.log_text.insert(tk.END, f"[{current_time}] {message}\n")
@@ -136,7 +150,6 @@ class TradingBotUI:
         
     def run_bot(self):
         self.bot = TradingBot(self.symbol_var.get(), self.interval_var.get())
-        self.bot.min_signal_strength = float(self.signal_strength_var.get())
         
         while self.is_running:
             try:
@@ -146,9 +159,10 @@ class TradingBotUI:
                     time.sleep(60)
                     continue
                 
+                # Calculate indicators
                 df = self.bot.calculate_signals(df)
                 
-                # Update displays
+                # Update regular displays
                 current_price = df['Close'].iloc[-1]
                 self.price_var.set(f"Current Price: ${current_price:.2f}")
                 self.rsi_var.set(f"RSI: {df['RSI'].iloc[-1]:.2f}")
@@ -158,6 +172,24 @@ class TradingBotUI:
                 
                 # Update MACD chart
                 self.update_macd_chart(df)
+                
+                # Get and display trend prediction
+                direction, strength, reason = TrendPredictor.predict_trend(df)
+                
+                # Update prediction displays with colors
+                self.trend_direction_var.set(f"Direction: {direction}")
+                self.trend_strength_var.set(f"Strength: {strength:.2f}")
+                self.trend_reason_var.set(f"Reason: {reason}")
+                
+                # Color-code the direction based on prediction
+                color = {
+                    "UP": "green",
+                    "DOWN": "red",
+                    "SIDEWAYS": "gray"
+                }.get(direction, "black")
+                
+                # Log significant trend changes
+                self.log(f"Trend Update: {direction} (Strength: {strength:.2f}) - {reason}")
                 
                 # Check for signals
                 signals = self.bot.analyze_signals(df)
