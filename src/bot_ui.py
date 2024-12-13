@@ -176,14 +176,44 @@ class TradingBotUI:
         if new_symbol != self.bot.symbol:
             self.log(f"Switching from {self.bot.symbol} to {new_symbol}")
             self.bot.symbol = new_symbol
-            # Reset all displays
+            
+            # Reset displays
             self.price_var.set("Current Price: --")
             self.rsi_var.set("RSI: --")
             self.macd_var.set("MACD: --")
             self.bb_upper_var.set("BB Upper: --")
             self.bb_lower_var.set("BB Lower: --")
+            
             # Reset position
             self.bot.position = False
+            
+            # Fetch new data immediately
+            try:
+                df = self.bot.get_data()
+                if df is not None:
+                    df = self.bot.calculate_signals(df)
+                    
+                    # Update displays
+                    current_price = df['Close'].iloc[-1]
+                    self.price_var.set(f"Current Price: ${current_price:.2f}")
+                    self.rsi_var.set(f"RSI: {df['RSI'].iloc[-1]:.2f}")
+                    self.macd_var.set(f"MACD: {df['MACD'].iloc[-1]:.2f}")
+                    self.bb_upper_var.set(f"BB Upper: {df['BB_high'].iloc[-1]:.2f}")
+                    self.bb_lower_var.set(f"BB Lower: {df['BB_low'].iloc[-1]:.2f}")
+                    
+                    # Update MACD chart
+                    self.update_macd_chart(df)
+                    
+                    # Check for signals
+                    signals = self.bot.analyze_signals(df)
+                    for signal in signals:
+                        self.show_alert(signal)
+                        
+                    self.log(f"Successfully switched to {new_symbol}")
+                else:
+                    self.log(f"Error: Could not fetch data for {new_symbol}")
+            except Exception as e:
+                self.log(f"Error switching to {new_symbol}: {e}")
 
     def show_alert(self, signal: Signal):
         """Show alert for trading signal"""
