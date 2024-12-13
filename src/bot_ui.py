@@ -207,25 +207,17 @@ class TradingBotUI:
         new_symbol = self.symbol_var.get().upper()
         if new_symbol != self.bot.symbol:
             self.log(f"Switching from {self.bot.symbol} to {new_symbol}")
-            self.bot.symbol = new_symbol
             
-            # Reset displays
-            self.price_var.set("Current Price: --")
-            self.rsi_var.set("RSI: --")
-            self.macd_var.set("MACD: --")
-            self.bb_upper_var.set("BB Upper: --")
-            self.bb_lower_var.set("BB Lower: --")
+            # Create a new bot instance (same as starting)
+            self.bot = TradingBot(new_symbol, self.interval_var.get())
             
-            # Reset position
-            self.bot.position = False
-            
-            # Fetch new data immediately
             try:
+                # Get and process data
                 df = self.bot.get_data()
                 if df is not None:
                     df = self.bot.calculate_signals(df)
                     
-                    # Update displays
+                    # Update all displays
                     current_price = df['Close'].iloc[-1]
                     self.price_var.set(f"Current Price: ${current_price:.2f}")
                     self.rsi_var.set(f"RSI: {df['RSI'].iloc[-1]:.2f}")
@@ -236,12 +228,21 @@ class TradingBotUI:
                     # Update MACD chart
                     self.update_macd_chart(df)
                     
+                    # Get trend prediction
+                    direction, strength, reason = TrendPredictor.predict_trend(df)
+                    self.trend_direction_var.set(f"Direction: {direction}")
+                    self.trend_strength_var.set(f"Strength: {strength:.2f}")
+                    self.trend_reason_var.set(f"Reason: {reason}")
+                    
                     # Check for signals
                     signals = self.bot.analyze_signals(df)
                     for signal in signals:
                         self.show_alert(signal)
                         
                     self.log(f"Successfully switched to {new_symbol}")
+                    
+                    # Log significant trend changes
+                    self.log(f"Trend Update: {direction} (Strength: {strength:.2f}) - {reason}")
                 else:
                     self.log(f"Error: Could not fetch data for {new_symbol}")
             except Exception as e:
