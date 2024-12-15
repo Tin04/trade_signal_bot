@@ -283,6 +283,34 @@ class TradingBotUI:
         # Log signal
         self.log(f"Signal: {signal.type} - {signal.reason} (Strength: {signal.strength:.2f})")
 
+    def validate_symbol(self, symbol):
+        """Validate if the symbol exists with more detailed checking"""
+        import yfinance as yf
+        try:
+            ticker = yf.Ticker(symbol)
+            
+            # Get historical data
+            hist = ticker.history(period="5d")
+            if hist.empty:
+                self.log(f"No historical data found for {symbol}")
+                return False
+                
+            # Check if it's a valid ticker by ensuring basic info exists
+            info = ticker.info
+            if not info:
+                self.log(f"No information available for {symbol}")
+                return False
+                
+            # Additional checks if needed
+            if 'regularMarketPrice' not in info and 'previousClose' not in info:
+                self.log(f"No price information available for {symbol}")
+                return False
+                
+            return True
+            
+        except Exception as e:
+            self.log(f"Symbol validation error: {e}")
+            return False
     
     def run_backtest(self):
         """Run backtest with current settings"""
@@ -290,6 +318,11 @@ class TradingBotUI:
             from .utils.backtester import Backtester
             
             symbol = self.symbol_var.get()
+                        
+            # Check if symbol exist
+            if not self.validate_symbol(symbol):
+                messagebox.showerror("Error", f"Invalid symbol or no data available for {symbol}")
+                return
             
             start_date = self.start_date_picker.get_date()
 
