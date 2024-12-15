@@ -103,16 +103,6 @@ class TradingBotUI:
         self.backtest_button = ttk.Button(backtest_frame, text="Run Backtest", command=self.run_backtest)
         self.backtest_button.pack(side=tk.LEFT, padx=20)
         
-        # Add MACD Chart Frame
-        self.chart_frame = ttk.LabelFrame(self.root, text="MACD Analysis", padding="10")
-        self.chart_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
-        
-        # Create figure for MACD chart
-        self.fig = Figure(figsize=(8, 4))
-        self.ax = self.fig.add_subplot(111)
-        self.canvas = FigureCanvasTkAgg(self.fig, master=self.chart_frame)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
-        
         # Add Trend Prediction Frame
         trend_frame = ttk.LabelFrame(self.root, text="Trend Prediction", padding="10")
         trend_frame.pack(fill=tk.X, padx=10, pady=5)
@@ -187,9 +177,6 @@ class TradingBotUI:
                 self.bb_upper_var.set(f"BB Upper: {df['BB_high'].iloc[-1]:.2f}")
                 self.bb_lower_var.set(f"BB Lower: {df['BB_low'].iloc[-1]:.2f}")
                 
-                # Update MACD chart
-                self.update_macd_chart(df)
-                
                 # Get and display trend prediction
                 direction, strength, reason = TrendPredictor.predict_trend(df)
                 
@@ -241,9 +228,6 @@ class TradingBotUI:
                     self.macd_var.set(f"MACD: {df['MACD'].iloc[-1]:.2f}")
                     self.bb_upper_var.set(f"BB Upper: {df['BB_high'].iloc[-1]:.2f}")
                     self.bb_lower_var.set(f"BB Lower: {df['BB_low'].iloc[-1]:.2f}")
-                    
-                    # Update MACD chart
-                    self.update_macd_chart(df)
                     
                     # Get trend prediction
                     direction, strength, reason = TrendPredictor.predict_trend(df)
@@ -370,47 +354,6 @@ class TradingBotUI:
         except Exception as e:
             messagebox.showerror("Error", f"Backtest failed: {str(e)}")
             self.log(f"Backtest error: {e}")
-
-    def update_macd_chart(self, df):
-        """Update MACD chart with new data"""
-        self.ax.clear()
-        
-        # Get last 30 data points
-        df_last30 = df.tail(30)
-        
-        # Plot MACD line and Signal line
-        self.ax.plot(df_last30.index, df_last30['MACD'], label='MACD', color='blue')
-        self.ax.plot(df_last30.index, df_last30['MACD_signal'], label='Signal', color='orange')
-        
-        # Plot MACD histogram
-        histogram = df_last30['MACD'] - df_last30['MACD_signal']
-        for i, (date, value) in enumerate(histogram.items()):
-            color = 'green' if value >= 0 else 'red'
-            self.ax.bar(date, value, color=color, alpha=0.5)
-        
-        # Add zero line
-        self.ax.axhline(y=0, color='gray', linestyle='--')
-        
-        # Customize chart
-        self.ax.set_title('MACD Analysis')
-        self.ax.legend()
-        self.ax.grid(True, alpha=0.3)
-        
-        # Rotate x-axis labels for better readability
-        plt.setp(self.ax.get_xticklabels(), rotation=45)
-        
-        # Add current values as text
-        current_macd = df['MACD'].iloc[-1]
-        current_signal = df['MACD_signal'].iloc[-1]
-        current_hist = histogram.iloc[-1]
-        
-        text = f'MACD: {current_macd:.2f}\nSignal: {current_signal:.2f}\nHistogram: {current_hist:.2f}'
-        self.ax.text(0.02, 0.95, text, transform=self.ax.transAxes, 
-                    bbox=dict(facecolor='white', alpha=0.8),
-                    verticalalignment='top')
-        
-        self.fig.tight_layout()
-        self.canvas.draw()
 
 if __name__ == "__main__":
     root = tk.Tk()
