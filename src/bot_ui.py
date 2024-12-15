@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.figure import Figure
 from src.utils.trend_predictor import TrendPredictor  # Add this import
+from tkcalendar import DateEntry
 
 class TradingBotUI:
     def __init__(self, root):
@@ -89,9 +90,14 @@ class TradingBotUI:
         
         # Start Date
         ttk.Label(backtest_frame, text="Start Date:").pack(side=tk.LEFT)
-        self.start_date_var = tk.StringVar(value=(datetime.now() - timedelta(days=90)).strftime("%Y-%m-%d"))
-        start_date_entry = ttk.Entry(backtest_frame, textvariable=self.start_date_var, width=10)
-        start_date_entry.pack(side=tk.LEFT, padx=5)
+        self.start_date_picker = DateEntry(backtest_frame, 
+                                         width=12,
+                                         background='darkblue',
+                                         foreground='white',
+                                         borderwidth=2,
+                                         date_pattern='yyyy-mm-dd',
+                                         maxdate=self.get_last_trading_day(),)  # Use helper method)
+        self.start_date_picker.pack(side=tk.LEFT, padx=5)
         
         # Run Backtest Button
         self.backtest_button = ttk.Button(backtest_frame, text="Run Backtest", command=self.run_backtest)
@@ -119,6 +125,17 @@ class TradingBotUI:
         ttk.Label(trend_frame, textvariable=self.trend_direction_var, font=('Arial', 10, 'bold')).pack(anchor='w')
         ttk.Label(trend_frame, textvariable=self.trend_strength_var).pack(anchor='w')
         ttk.Label(trend_frame, textvariable=self.trend_reason_var).pack(anchor='w')
+
+    def get_last_trading_day(self):
+        """Return the last trading day (excluding weekends)"""
+        today = datetime.now()
+        # If today is Sunday, subtract 2 days
+        if today.weekday() == 6:
+            return today - timedelta(days=2)
+        # If today is Saturday, subtract 1 day
+        elif today.weekday() == 5:
+            return today - timedelta(days=1)
+        return today
 
     def log(self, message):
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -266,15 +283,22 @@ class TradingBotUI:
         # Log signal
         self.log(f"Signal: {signal.type} - {signal.reason} (Strength: {signal.strength:.2f})")
 
+    
     def run_backtest(self):
         """Run backtest with current settings"""
         try:
             from .utils.backtester import Backtester
             
             symbol = self.symbol_var.get()
-            start_date = datetime.strptime(self.start_date_var.get(), "%Y-%m-%d")
             
-            self.log(f"Starting backtest for {symbol} from {start_date.date()}")
+            start_date = self.start_date_picker.get_date()
+
+            # Check if start_date is a weekend
+            if start_date.weekday() >= 5:  # 5 is Saturday, 6 is Sunday
+                messagebox.showerror("Error", "Please select a weekday for backtesting")
+                return
+        
+            self.log(f"Starting backtest for {symbol} from {start_date}")
             
             backtester = Backtester(symbol, start_date)
             results = backtester.run_backtest()
@@ -291,7 +315,7 @@ class TradingBotUI:
                 
                 # Format results
                 results_text.insert(tk.END, f"Backtest Results for {symbol}\n")
-                results_text.insert(tk.END, f"Period: {start_date.date()} to {datetime.now().date()}\n\n")
+                results_text.insert(tk.END, f"Period: {start_date} to {datetime.now().date()}\n\n")
                 results_text.insert(tk.END, f"Total Trades: {results['total_trades']}\n")
                 results_text.insert(tk.END, f"Profitable Trades: {results['profitable_trades']}\n")
                 results_text.insert(tk.END, f"Total Return: ${results['total_return']:.2f}\n")
