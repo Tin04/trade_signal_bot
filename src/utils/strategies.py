@@ -150,3 +150,140 @@ class TradingStrategies:
             elif price_change < 0:
                 return Signal('SELL', price, 'High volume price decrease', min(1.0, current_volume/avg_volume - 1))
         return None
+
+    @staticmethod
+    def find_support_resistance(df, window=20, threshold=0.02):
+        """
+        Find support and resistance levels using price pivots and volume.
+        
+        Parameters:
+        - window: lookback period for finding pivots
+        - threshold: minimum price difference (%) to consider a new level
+        
+        Returns:
+        - support_levels: list of support prices
+        - resistance_levels: list of resistance prices
+        """
+        highs = df['High'].values
+        lows = df['Low'].values
+        volumes = df['Volume'].values
+        
+        support_levels = []
+        resistance_levels = []
+        
+        # Find pivot points
+        for i in range(window, len(df) - window):
+            # Potential support
+            if all(lows[i] <= lows[i-window:i]) and all(lows[i] <= lows[i+1:i+window]):
+                # Confirm with volume
+                if volumes[i] > volumes[i-window:i+window].mean():
+                    support_levels.append(lows[i])
+                    
+            # Potential resistance
+            if all(highs[i] >= highs[i-window:i]) and all(highs[i] >= highs[i+1:i+window]):
+                # Confirm with volume
+                if volumes[i] > volumes[i-window:i+window].mean():
+                    resistance_levels.append(highs[i])
+        
+        # Cluster nearby levels
+        def cluster_levels(levels, threshold):
+            if not levels:
+                return []
+            levels = sorted(levels)
+            clustered = []
+            current_cluster = [levels[0]]
+            
+            for level in levels[1:]:
+                if (level - current_cluster[0]) / current_cluster[0] <= threshold:
+                    current_cluster.append(level)
+                else:
+                    clustered.append(sum(current_cluster) / len(current_cluster))
+                    current_cluster = [level]
+            
+            if current_cluster:
+                clustered.append(sum(current_cluster) / len(current_cluster))
+            return clustered
+        
+        support_levels = cluster_levels(support_levels, threshold)
+        resistance_levels = cluster_levels(resistance_levels, threshold)
+        
+        return support_levels, resistance_levels
+
+    @staticmethod
+    def swing_trade_strategy(df) -> Optional[Signal]:
+        """
+        Enhanced Swing Trading Strategy with dynamic support/resistance
+        """
+        try:
+            if len(df) < 20:
+                return None
+            
+            current_price = df['Close'].iloc[-1]
+            current_volume = df['Volume'].iloc[-1]
+            avg_volume = df['Volume'].rolling(window=20).mean().iloc[-1]
+            rsi = df['RSI'].iloc[-1]
+            prev_rsi = df['RSI'].iloc[-2]
+            
+            # Find support and resistance levels
+            support_levels, resistance_levels = TradingStrategies.find_support_resistance(df)
+            
+            if not support_levels or not resistance_levels:
+                return None
+            
+            # Find nearest support and resistance
+            nearest_support = max([s for s in support_levels if s < current_price], default=None)
+            nearest_resistance = min([r for r in resistance_levels if r > current_price], default=None)
+            
+            if not nearest_support or not nearest_resistance:
+                return None
+            
+            # Calculate price distances
+            support_distance = (current_price - nearest_support) / nearest_support
+            resistance_distance = (nearest_resistance - current_price) / current_price
+            
+            # Volume confirmation
+            volume_surge = current_volume > (1.5 * avg_volume)
+            
+            # Trend confirmation
+            last_5_lows = df['Low'].rolling(window=5).min()
+            last_5_highs = df['High'].rolling(window=5).max()
+            higher_lows = last_5_lows.iloc[-1] > last_5_lows.iloc[-5]
+            lower_highs = last_5_highs.iloc[-1] < last_5_highs.iloc[-5]
+            
+            # BUY Signal
+            if (support_distance < 0.02  # Price near support (2% threshold)
+                and higher_lows
+                and rsi < 40 and rsi > prev_rsi):
+                
+                strength_factors = [
+                    0.3,  # Base strength
+                    0.2 if volume_surge else 0,  # Volume confirmation
+                    0.3 if rsi < 30 else 0.1,  # RSI factor
+                    0.2 * (1 - support_distance/0.02)  # Proximity to support
+                ]
+                
+                strength = min(1.0, sum(strength_factors))
+                reason = f"Swing Trade BUY: Near support {nearest_support:.2f}"
+                return Signal('BUY', current_price, reason, strength)
+                
+            # SELL Signal
+            elif (resistance_distance < 0.02  # Price near resistance (2% threshold)
+                  and lower_highs
+                  and rsi > 60 and rsi < prev_rsi):
+                
+                strength_factors = [
+                    0.3,  # Base strength
+                    0.2 if volume_surge else 0,  # Volume confirmation
+                    0.3 if rsi > 70 else 0.1,  # RSI factor
+                    0.2 * (1 - resistance_distance/0.02)  # Proximity to resistance
+                ]
+                
+                strength = min(1.0, sum(strength_factors))
+                reason = f"Swing Trade SELL: Near resistance {nearest_resistance:.2f}"
+                return Signal('SELL', current_price, reason, strength)
+                
+            return None
+            
+        except Exception as e:
+            print(f"Swing strategy error: {e}")
+            return None
