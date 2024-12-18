@@ -212,12 +212,36 @@ class TradingStrategies:
     @staticmethod
     def swing_trade_strategy(df) -> Optional[Signal]:
         """
-        Enhanced Swing Trading Strategy with dynamic support/resistance
+        Enhanced Swing Trading Strategy with dynamic support/resistance.
+        
+        This strategy identifies potential swing trade opportunities based on:
+        - Support and resistance levels
+        - Trend strength
+        - Volume confirmation
+        - Price action patterns
+        
+        Conditions:
+        - BUY when:
+            1. Price bounces off support with increased volume
+            2. Upward trend confirmation (higher lows)
+            3. RSI showing oversold but starting to rise
+        
+        - SELL when:
+            1. Price hits resistance with increased volume
+            2. Downward trend confirmation (lower highs)
+            3. RSI showing overbought and starting to fall
+        
+        Signal Strength:
+        - Based on multiple confirmations
+        - Volume surge adds to strength
+        - Clear support/resistance levels increase strength
         """
         try:
+            # Ensure there is enough data for analysis
             if len(df) < 20:
                 return None
-            
+                
+            # Get the current price and volume
             current_price = df['Close'].iloc[-1]
             current_volume = df['Volume'].iloc[-1]
             avg_volume = df['Volume'].rolling(window=20).mean().iloc[-1]
@@ -227,63 +251,67 @@ class TradingStrategies:
             # Find support and resistance levels
             support_levels, resistance_levels = TradingStrategies.find_support_resistance(df)
             
+            # Ensure we have valid support and resistance levels
             if not support_levels or not resistance_levels:
                 return None
-            
-            # Find nearest support and resistance
+                
+            # Find the nearest support and resistance levels
             nearest_support = max([s for s in support_levels if s < current_price], default=None)
             nearest_resistance = min([r for r in resistance_levels if r > current_price], default=None)
             
+            # Ensure we have valid nearest levels
             if not nearest_support or not nearest_resistance:
                 return None
-            
-            # Calculate price distances
+                
+            # Calculate price distances to support and resistance
             support_distance = (current_price - nearest_support) / nearest_support
             resistance_distance = (nearest_resistance - current_price) / current_price
             
-            # Volume confirmation
+            # Check for volume confirmation (surge)
             volume_surge = current_volume > (1.5 * avg_volume)
             
-            # Trend confirmation
+            # Trend confirmation using recent lows and highs
             last_5_lows = df['Low'].rolling(window=5).min()
             last_5_highs = df['High'].rolling(window=5).max()
-            higher_lows = last_5_lows.iloc[-1] > last_5_lows.iloc[-5]
-            lower_highs = last_5_highs.iloc[-1] < last_5_highs.iloc[-5]
+            higher_lows = last_5_lows.iloc[-1] > last_5_lows.iloc[-5]  # Check for higher lows
+            lower_highs = last_5_highs.iloc[-1] < last_5_highs.iloc[-5]  # Check for lower highs
             
-            # BUY Signal
+            # BUY Signal Conditions
             if (support_distance < 0.02  # Price near support (2% threshold)
-                and higher_lows
-                and rsi < 40 and rsi > prev_rsi):
+                and higher_lows  # Confirm upward trend
+                and rsi < 40 and rsi > prev_rsi):  # RSI oversold but rising
                 
+                # Calculate signal strength factors
                 strength_factors = [
                     0.3,  # Base strength
-                    0.2 if volume_surge else 0,  # Volume confirmation
-                    0.3 if rsi < 30 else 0.1,  # RSI factor
-                    0.2 * (1 - support_distance/0.02)  # Proximity to support
+                    0.2 if volume_surge else 0,  # Add strength if volume surges
+                    0.3 if rsi < 30 else 0.1,  # Add strength if RSI is very low
+                    0.2 * (1 - support_distance/0.02)  # Proximity to support increases strength
                 ]
                 
-                strength = min(1.0, sum(strength_factors))
-                reason = f"Swing Trade BUY: Near support {nearest_support:.2f}"
-                return Signal('BUY', current_price, reason, strength)
+                strength = min(1.0, sum(strength_factors))  # Calculate total strength
+                reason = f"Swing Trade BUY: Near support {nearest_support:.2f}"  # Reason for the signal
+                return Signal('BUY', current_price, reason, strength)  # Return the BUY signal
                 
-            # SELL Signal
+            # SELL Signal Conditions
             elif (resistance_distance < 0.02  # Price near resistance (2% threshold)
-                  and lower_highs
-                  and rsi > 60 and rsi < prev_rsi):
+                  and lower_highs  # Confirm downward trend
+                  and rsi > 60 and rsi < prev_rsi):  # RSI overbought and falling
                 
+                # Calculate signal strength factors
                 strength_factors = [
                     0.3,  # Base strength
-                    0.2 if volume_surge else 0,  # Volume confirmation
-                    0.3 if rsi > 70 else 0.1,  # RSI factor
-                    0.2 * (1 - resistance_distance/0.02)  # Proximity to resistance
+                    0.2 if volume_surge else 0,  # Add strength if volume surges
+                    0.3 if rsi > 70 else 0.1,  # Add strength if RSI is very high
+                    0.2 * (1 - resistance_distance/0.02)  # Proximity to resistance increases strength
                 ]
                 
-                strength = min(1.0, sum(strength_factors))
-                reason = f"Swing Trade SELL: Near resistance {nearest_resistance:.2f}"
-                return Signal('SELL', current_price, reason, strength)
+                strength = min(1.0, sum(strength_factors))  # Calculate total strength
+                reason = f"Swing Trade SELL: Near resistance {nearest_resistance:.2f}"  # Reason for the signal
+                return Signal('SELL', current_price, reason, strength)  # Return the SELL signal
                 
-            return None
+            return None  # No signal generated
             
         except Exception as e:
-            print(f"Swing strategy error: {e}")
+            print(f"Swing strategy error: {e}")  # Log any errors
             return None
