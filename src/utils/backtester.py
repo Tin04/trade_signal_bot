@@ -21,81 +21,110 @@ class Backtester:
         df = ticker.history(start=self.start_date, end=self.end_date, interval=interval)
         return df
     
-    def analyze_signals(self, df) -> list[Signal]:
+    def analyze_signals(self, df) -> list:
         """Analyze all strategies and return triggered signals"""
         signals = []
-        strategies = [
-            self.strategies.rsi_strategy,
-            self.strategies.macd_cross_strategy,
-            self.strategies.bollinger_bands_strategy,
-            self.strategies.volume_price_strategy
-        ]
         
-        for strategy in strategies:
-            signal = strategy(df)
-            if signal and signal.strength >= 0.1:  # Lowered threshold from 0.3 to 0.1
-                signals.append(signal)
-                print(f"Signal generated: {signal.type} at ${signal.price:.2f} ({signal.reason})")
+        # Existing strategies
+        rsi_signal = TradingStrategies.rsi_strategy(df)
+        if rsi_signal:
+            signals.append(rsi_signal)
+            
+        macd_signal = TradingStrategies.macd_cross_strategy(df)
+        if macd_signal:
+            signals.append(macd_signal)
+            
+        bb_signal = TradingStrategies.bollinger_bands_strategy(df)
+        if bb_signal:
+            signals.append(bb_signal)
+            
+        # # Add swing trade strategy
+        # swing_signal = TradingStrategies.swing_trade_strategy(df)
+        # if swing_signal:
+        #     signals.append(swing_signal)
+        
         return signals
     
-    def run_backtest(self, interval='1d'):
+    def run_backtest(self):
         """Run backtest and return performance metrics"""
-        df = self.get_historical_data(interval)
-        if df.empty:
-            return None
-        
-        # Calculate technical indicators
-        df['RSI'] = ta.momentum.RSIIndicator(df['Close']).rsi()
-        macd = ta.trend.MACD(df['Close'])
-        df['MACD'] = macd.macd()
-        df['MACD_signal'] = macd.macd_signal()
-        bollinger = ta.volatility.BollingerBands(df['Close'])
-        df['BB_high'] = bollinger.bollinger_hband()
-        df['BB_low'] = bollinger.bollinger_lband()
-        
-        results = []
-        for i in range(len(df)):
-            current_data = df.iloc[:i+1]
-            if len(current_data) < 20:  # Need enough data for indicators
-                continue
-                
-            signals = self.analyze_signals(current_data)
-            price = current_data['Close'].iloc[-1]
-            date = current_data.index[-1]
+        try:
+            print(f"Starting backtest for {self.symbol} from {self.start_date}")
+            df = yf.download(self.symbol, start=self.start_date, end=self.end_date, interval='1d')
+            print(f"Downloaded {len(df)} days of data")
+            print(f"Shape of df: {df.shape}")
             
-            for signal in signals:
-                if signal.type == 'BUY' and self.position == 0:
-                    # Calculate position size (invest 95% of capital)
-                    shares = int((self.capital * 0.95) / price)
-                    cost = shares * price
-                    self.capital -= cost
-                    self.position = shares
-                    self.trades.append({
-                        'date': date,
-                        'type': 'BUY',
-                        'price': price,
-                        'shares': shares,
-                        'cost': cost,
-                        'capital': self.capital,
-                        'reason': signal.reason
-                    })
+            
+            if df.empty:
+                print("No data available for this period")
+                return None
+            
+            # Assuming df['Close'] is a DataFrame with shape (n, 1)
+            close_series = df['Close'].squeeze()  # Convert to Series if needed
+            print(f"Shape of df['Close']: {df['Close'].shape}")
+            # Calculate technical indicators
+            df['RSI'] = ta.momentum.RSIIndicator(close_series).rsi()
+            if df['RSI'].isnull().all():
+                print("RSI calculation failed.")
+            
+            macd = ta.trend.MACD(close_series)
+            df['MACD'] = macd.macd()
+            df['MACD_signal'] = macd.macd_signal()
+            
+            # Check for NaN values in the DataFrame
+            if df.isnull().values.any():
+                print("DataFrame contains NaN values after indicator calculations.")
+            
+            bollinger = ta.volatility.BollingerBands(close_series)
+            df['BB_high'] = bollinger.bollinger_hband()
+            df['BB_low'] = bollinger.bollinger_lband()
+            
+            results = []
+            for i in range(len(df)):
+                current_data = df.iloc[:i+1]
+                if len(current_data) < 20:  # Need enough data for indicators
+                    continue
                     
-                elif signal.type == 'SELL' and self.position > 0:
-                    # Sell all shares
-                    revenue = self.position * price
-                    self.capital += revenue
-                    self.trades.append({
-                        'date': date,
-                        'type': 'SELL',
-                        'price': price,
-                        'shares': self.position,
-                        'revenue': revenue,
-                        'capital': self.capital,
-                        'reason': signal.reason
-                    })
-                    self.position = 0
+                signals = self.analyze_signals(current_data)
+                price = current_data['Close'].iloc[-1]
+                date = current_data.index[-1]
+                
+                for signal in signals:
+                    if signal.type == 'BUY' and self.position == 0:
+                        # Calculate position size (invest 95% of capital)
+                        shares = int((self.capital * 0.95) / price)
+                        cost = shares * price
+                        self.capital -= cost
+                        self.position = shares
+                        self.trades.append({
+                            'date': date,
+                            'type': 'BUY',
+                            'price': price,
+                            'shares': shares,
+                            'cost': cost,
+                            'capital': self.capital,
+                            'reason': signal.reason
+                        })
+                        
+                    elif signal.type == 'SELL' and self.position > 0:
+                        # Sell all shares
+                        revenue = self.position * price
+                        self.capital += revenue
+                        self.trades.append({
+                            'date': date,
+                            'type': 'SELL',
+                            'price': price,
+                            'shares': self.position,
+                            'revenue': revenue,
+                            'capital': self.capital,
+                            'reason': signal.reason
+                        })
+                        self.position = 0
+            
+            return self.calculate_metrics()
         
-        return self.calculate_metrics()
+        except Exception as e:
+            print(f"Backtest error: {e}")
+            return None
     
     def calculate_metrics(self):
         """Calculate performance metrics"""
