@@ -38,43 +38,27 @@ class Backtester:
         if bb_signal:
             signals.append(bb_signal)
             
-        # # Add swing trade strategy
-        # swing_signal = TradingStrategies.swing_trade_strategy(df)
-        # if swing_signal:
-        #     signals.append(swing_signal)
+        # Add swing trade strategy
+        swing_signal = TradingStrategies.swing_trade_strategy(df)
+        if swing_signal:
+            signals.append(swing_signal)
         
         return signals
     
-    def run_backtest(self):
+    def run_backtest(self, interval='1d'):
         """Run backtest and return performance metrics"""
         try:
             print(f"Starting backtest for {self.symbol} from {self.start_date}")
-            df = yf.download(self.symbol, start=self.start_date, end=self.end_date, interval='1d')
-            print(f"Downloaded {len(df)} days of data")
-            print(f"Shape of df: {df.shape}")
-            
-            
+            df = self.get_historical_data(interval)
             if df.empty:
-                print("No data available for this period")
                 return None
             
-            # Assuming df['Close'] is a DataFrame with shape (n, 1)
-            close_series = df['Close'].squeeze()  # Convert to Series if needed
-            print(f"Shape of df['Close']: {df['Close'].shape}")
             # Calculate technical indicators
-            df['RSI'] = ta.momentum.RSIIndicator(close_series).rsi()
-            if df['RSI'].isnull().all():
-                print("RSI calculation failed.")
-            
-            macd = ta.trend.MACD(close_series)
+            df['RSI'] = ta.momentum.RSIIndicator(df['Close']).rsi()
+            macd = ta.trend.MACD(df['Close'])
             df['MACD'] = macd.macd()
             df['MACD_signal'] = macd.macd_signal()
-            
-            # Check for NaN values in the DataFrame
-            if df.isnull().values.any():
-                print("DataFrame contains NaN values after indicator calculations.")
-            
-            bollinger = ta.volatility.BollingerBands(close_series)
+            bollinger = ta.volatility.BollingerBands(df['Close'])
             df['BB_high'] = bollinger.bollinger_hband()
             df['BB_low'] = bollinger.bollinger_lband()
             
