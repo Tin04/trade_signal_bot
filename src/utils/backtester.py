@@ -42,7 +42,11 @@ class Backtester:
         swing_signal = TradingStrategies.swing_trade_strategy(df)
         if swing_signal:
             signals.append(swing_signal)
-        
+
+        fibonacci_swing_signal = TradingStrategies.swing_trade_strategy_with_fibonacci(df)
+        if fibonacci_swing_signal:
+            signals.append(fibonacci_swing_signal)
+    
         return signals
     
     def run_backtest(self, interval='1d'):
