@@ -315,3 +315,121 @@ class TradingStrategies:
         except Exception as e:
             print(f"Swing strategy error: {e}")  # Log any errors
             return None
+        
+    @staticmethod
+    def fibonacci_retracement(df) -> tuple:
+        """
+        Calculate Fibonacci retracement levels based on the high and low of the given DataFrame.
+        
+        Parameters:
+        - df: DataFrame containing price data with 'High' and 'Low' columns.
+        
+        Returns:
+        - A tuple containing the Fibonacci levels: (level_0, level_236, level_382, level_618, level_1)
+        """
+        max_price = df['High'].max()
+        min_price = df['Low'].min()
+        
+        # Calculate the range
+        difference = max_price - min_price
+        
+        # Calculate Fibonacci levels
+        level_0 = max_price
+        level_236 = max_price - difference * 0.236
+        level_382 = max_price - difference * 0.382
+        level_618 = max_price - difference * 0.618
+        level_1 = min_price
+        
+        return level_0, level_236, level_382, level_618, level_1
+
+    @staticmethod
+    def swing_trade_strategy_with_fibonacci(df) -> Optional[Signal]:
+        """
+        Enhanced Swing Trading Strategy using Fibonacci retracement levels.
+        
+        This strategy identifies potential swing trade opportunities based on:
+        - Fibonacci retracement levels for support/resistance
+        - Trend strength
+        - Volume confirmation
+        - Price action patterns
+        
+        Conditions:
+        - BUY when:
+            1. Price bounces off a Fibonacci support level with increased volume
+            2. Upward trend confirmation (higher lows)
+            3. RSI showing oversold but starting to rise
+        
+        - SELL when:
+            1. Price hits a Fibonacci resistance level with increased volume
+            2. Downward trend confirmation (lower highs)
+            3. RSI showing overbought and starting to fall
+        
+        Signal Strength:
+        - Based on multiple confirmations
+        - Volume surge adds to strength
+        - Clear Fibonacci levels increase strength
+        """
+        try:
+            # Ensure there is enough data for analysis
+            if len(df) < 20:
+                return None
+                
+            # Get the current price and volume
+            current_price = df['Close'].iloc[-1]
+            current_volume = df['Volume'].iloc[-1]
+            avg_volume = df['Volume'].rolling(window=20).mean().iloc[-1]
+            rsi = df['RSI'].iloc[-1]
+            prev_rsi = df['RSI'].iloc[-2]
+            
+            # Calculate Fibonacci retracement levels
+            fib_levels = TradingStrategies.fibonacci_retracement(df)
+            level_0, level_236, level_382, level_618, level_1 = fib_levels
+            
+            # Check for volume confirmation (surge)
+            volume_surge = current_volume > (1.5 * avg_volume)
+            
+            # Trend confirmation using recent lows and highs
+            last_5_lows = df['Low'].rolling(window=5).min()
+            last_5_highs = df['High'].rolling(window=5).max()
+            higher_lows = last_5_lows.iloc[-1] > last_5_lows.iloc[-5]  # Check for higher lows
+            lower_highs = last_5_highs.iloc[-1] < last_5_highs.iloc[-5]  # Check for lower highs
+            
+            # BUY Signal Conditions
+            if (current_price <= level_382  # Price near Fibonacci support level
+                and higher_lows  # Confirm upward trend
+                and rsi < 40 and rsi > prev_rsi):  # RSI oversold but rising
+                
+                # Calculate signal strength factors
+                strength_factors = [
+                    0.3,  # Base strength
+                    0.2 if volume_surge else 0,  # Add strength if volume surges
+                    0.3 if rsi < 30 else 0.1,  # Add strength if RSI is very low
+                    0.2 * (1 - (current_price - level_382) / (level_0 - level_382))  # Proximity to support increases strength
+                ]
+                
+                strength = min(1.0, sum(strength_factors))  # Calculate total strength
+                reason = f"Swing Trade BUY: Near Fibonacci support {level_382:.2f}"  # Reason for the signal
+                return Signal('BUY', current_price, reason, strength)  # Return the BUY signal
+                
+            # SELL Signal Conditions
+            elif (current_price >= level_618  # Price near Fibonacci resistance level
+                and lower_highs  # Confirm downward trend
+                and rsi > 60 and rsi < prev_rsi):  # RSI overbought and falling
+                
+                # Calculate signal strength factors
+                strength_factors = [
+                    0.3,  # Base strength
+                    0.2 if volume_surge else 0,  # Add strength if volume surges
+                    0.3 if rsi > 70 else 0.1,  # Add strength if RSI is very high
+                    0.2 * (1 - (level_618 - current_price) / (level_618 - level_1))  # Proximity to resistance increases strength
+                ]
+                
+                strength = min(1.0, sum(strength_factors))  # Calculate total strength
+                reason = f"Swing Trade SELL: Near Fibonacci resistance {level_618:.2f}"  # Reason for the signal
+                return Signal('SELL', current_price, reason, strength)  # Return the SELL signal
+                
+            return None  # No signal generated
+            
+        except Exception as e:
+            print(f"Swing strategy error: {e}")  # Log any errors
+            return None
