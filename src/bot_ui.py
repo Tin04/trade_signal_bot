@@ -96,6 +96,12 @@ class TradingBotUI:
                                          maxdate=self.get_last_trading_day(),)  # Use helper method)
         self.start_date_picker.pack(side=tk.LEFT, padx=5)
         
+        # Label and entry for initial capital
+        ttk.Label(backtest_frame, text="Initial Capital (int):").pack(side=tk.LEFT)
+        self.backtest_capital = ttk.Entry(backtest_frame)
+        self.backtest_capital.pack(side=tk.LEFT, padx=5)
+        self.backtest_capital.insert(0, "10000")  # Default value
+
         # Run Backtest Button
         self.backtest_button = ttk.Button(backtest_frame, text="Run Backtest", command=self.run_backtest)
         self.backtest_button.pack(side=tk.LEFT, padx=20)
@@ -305,6 +311,10 @@ class TradingBotUI:
                 messagebox.showerror("Error", f"Invalid symbol or no data available for {symbol}")
                 return
             
+            backtest_capital = int(self.backtest_capital.get())  # Convert to integer
+            if backtest_capital <= 0:
+                raise ValueError("Capital must be a positive integer.")
+            
             start_date = self.start_date_picker.get_date()
 
             # Check if start_date is a weekend
@@ -314,7 +324,7 @@ class TradingBotUI:
         
             self.log(f"Starting backtest for {symbol} from {start_date}")
             
-            backtester = Backtester(symbol, start_date)
+            backtester = Backtester(symbol, start_date, initial_capital=backtest_capital)
             results = backtester.run_backtest()
             
             if results:
@@ -347,10 +357,15 @@ class TradingBotUI:
                 
             else:
                 messagebox.showerror("Error", "No backtest results available")
-                
+        
+        except ValueError as v:
+            messagebox.showerror("Invalid Input", f"Please enter a valid integer for initial capital.\n{str(v)}")
+            return  # Exit the method if input is invalid
+           
         except Exception as e:
             messagebox.showerror("Error", f"Backtest failed: {str(e)}")
             self.log(f"Backtest error: {e}")
+        
 
 if __name__ == "__main__":
     root = tk.Tk()
