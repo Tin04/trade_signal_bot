@@ -7,9 +7,6 @@ import time
 from src import TradingBot  # Add this line
 import winsound  # For Windows alert sound (use different library for other OS)
 from src.utils.strategies import Signal  # Add this import
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.figure import Figure
 from src.utils.trend_predictor import TrendPredictor  # Add this import
 from tkcalendar import DateEntry
 
