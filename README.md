@@ -1,4 +1,4 @@
-# Trading Bot
+# Trade Signal Bot
 
 A Python-based trading bot with technical analysis capabilities and an interactive GUI interface. The bot provides real-time market analysis, trend predictions, and trading signals based on multiple technical indicators.
 

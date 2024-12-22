@@ -13,7 +13,7 @@ from tkcalendar import DateEntry
 class TradingBotUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("Trading Bot Dashboard")
+        self.root.title("Trade Signal Bot Dashboard")
         self.root.geometry("800x600")
         self.bot = None
         self.is_running = False
