@@ -32,6 +32,7 @@ A Python-based trading bot with technical analysis capabilities and an interacti
    ```
 
 ## User Guide
+![image](https://github.com/user-attachments/assets/0efba20b-44c6-4105-bf73-53ce28243ffd)
 
 ### Basic Operations
 1. **Starting the Bot**:
@@ -51,6 +52,8 @@ A Python-based trading bot with technical analysis capabilities and an interacti
    - Watch MACD chart for visual analysis
 
 ### Trading Signals
+![image](https://github.com/user-attachments/assets/1c4aacfa-ee07-48d2-b92b-613e40cdfb4b)
+
 - The bot generates alerts based on:
   - RSI overbought/oversold conditions
   - MACD crossovers
@@ -60,6 +63,8 @@ A Python-based trading bot with technical analysis capabilities and an interacti
 - Receive pop-up alerts with sound for significant trading signals
 
 ### Backtesting
+![image](https://github.com/user-attachments/assets/5e33b5ea-6edb-45ea-a24b-923cb389cc0b)
+
 1. Select a start date using the date picker
 2. Click "Run Backtest" to analyze historical performance
 3. View detailed results including:
