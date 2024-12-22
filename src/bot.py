@@ -72,55 +72,55 @@ class TradingBot:
                 
         return signals
     
-    def run(self):
-        """Main bot loop"""
-        print(f"Starting bot for {self.symbol}")
-        while True:
-            try:
-                # Get current data
-                df = self.get_data()
-                if df is None:
-                    print("No data available, waiting before retry...")
-                    time.sleep(60)
-                    continue
+    # def run(self):
+    #     """Main bot loop"""
+    #     print(f"Starting bot for {self.symbol}")
+    #     while True:
+    #         try:
+    #             # Get current data
+    #             df = self.get_data()
+    #             if df is None:
+    #                 print("No data available, waiting before retry...")
+    #                 time.sleep(60)
+    #                 continue
                 
-                # Print current price for debugging
-                current_price = df['Close'].iloc[-1]
-                print(f"Current price: ${current_price:.2f}")
+    #             # Print current price for debugging
+    #             current_price = df['Close'].iloc[-1]
+    #             print(f"Current price: ${current_price:.2f}")
                 
-                # Calculate technical indicators
-                df = self.calculate_signals(df)
+    #             # Calculate technical indicators
+    #             df = self.calculate_signals(df)
                 
-                # Print indicator values for debugging
-                print(f"RSI: {df['RSI'].iloc[-1]:.2f}")
-                print(f"MACD: {df['MACD'].iloc[-1]:.2f}")
-                print(f"BB Upper: {df['BB_high'].iloc[-1]:.2f}")
-                print(f"BB Lower: {df['BB_low'].iloc[-1]:.2f}")
+    #             # Print indicator values for debugging
+    #             print(f"RSI: {df['RSI'].iloc[-1]:.2f}")
+    #             print(f"MACD: {df['MACD'].iloc[-1]:.2f}")
+    #             print(f"BB Upper: {df['BB_high'].iloc[-1]:.2f}")
+    #             print(f"BB Lower: {df['BB_low'].iloc[-1]:.2f}")
                 
-                # Analyze trading signals
-                signals = self.analyze_signals(df)
+    #             # Analyze trading signals
+    #             signals = self.analyze_signals(df)
                 
-                for signal in signals:
-                    print(f"{datetime.now()}: {signal.type} signal generated at price: {signal.price:.2f} ({signal.reason})")
-                    self.position = not self.position  # Toggle position
+    #             for signal in signals:
+    #                 print(f"{datetime.now()}: {signal.type} signal generated at price: {signal.price:.2f} ({signal.reason})")
+    #                 self.position = not self.position  # Toggle position
                 
-                if not signals:
-                    print("No trading signal generated")
+    #             if not signals:
+    #                 print("No trading signal generated")
                 
-                # Wait before next iteration
-                print("Waiting 60 seconds before next check...")
-                time.sleep(60)  # Check every minute
+    #             # Wait before next iteration
+    #             print("Waiting 60 seconds before next check...")
+    #             time.sleep(60)  # Check every minute
                 
-            except Exception as e:
-                print(f"Error occurred: {e}")
-                time.sleep(60)  # Wait a minute before retrying
+    #         except Exception as e:
+    #             print(f"Error occurred: {e}")
+    #             time.sleep(60)  # Wait a minute before retrying
 
-if __name__ == "__main__":
-    # Create and run bot for AAPL (or any other valid symbol)
-    bot = TradingBot("ETHT")
-    try:
-        bot.run()
-    except KeyboardInterrupt:
-        print("\nBot stopped by user")
-    except Exception as e:
-        print(f"\nBot stopped due to error: {e}")
+# if __name__ == "__main__":
+#     # Create and run bot for AAPL (or any other valid symbol)
+#     bot = TradingBot("ETHT")
+#     try:
+#         bot.run()
+#     except KeyboardInterrupt:
+#         print("\nBot stopped by user")
+#     except Exception as e:
+#         print(f"\nBot stopped due to error: {e}")
